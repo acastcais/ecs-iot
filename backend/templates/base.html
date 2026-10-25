@@ -24,10 +24,14 @@
         </a>
         <nav>
             {% if user.is_authenticated %}
-                <a href="{% url 'monitoring:product-list' %}">Productos</a>
-                <a href="{% url 'monitoring:device-list' %}">Dispositivos</a>
+                {% if not user_is_viewer %}
+                    <a href="{% url 'monitoring:product-list' %}">Productos</a>
+                    <a href="{% url 'monitoring:device-list' %}">Dispositivos</a>
+                {% endif %}
                 <a href="{% url 'monitoring:devices-map' %}">Mapa</a>
-                <a href="{% url 'monitoring:profile-branding-edit' %}">Personalización</a>
+                {% if not user_is_viewer %}
+                    <a href="{% url 'monitoring:profile-branding-edit' %}">Personalización</a>
+                {% endif %}
                 {% if user_is_admin_or_global or user_role == "global" %}
                     <details class="nav-dropdown">
                         <summary>Configuración</summary>
@@ -44,7 +48,7 @@
                     </details>
                 {% endif %}
                 <span class="user">{{ user.username }}</span>
-                <a href="/admin/">Admin</a>
+                {% if not user_is_viewer %}<a href="/admin/">Admin</a>{% endif %}
                 <form method="post" action="{% url 'logout' %}" class="logout-form">
                     {% csrf_token %}
                     <button type="submit" class="link-button">Salir</button>

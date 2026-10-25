@@ -43,6 +43,7 @@
         <th>Rol</th>
         <th>Estado</th>
         <th>Alta</th>
+        <th>Último acceso</th>
         <th></th>
       </tr>
     </thead>
@@ -55,6 +56,7 @@
         <td>{{ row.role_label }}</td>
         <td>{% if u.is_active %}Activo{% else %}Inactivo{% endif %}</td>
         <td>{{ u.date_joined|date:"Y-m-d" }}</td>
+        <td>{{ u.last_login|date:"Y-m-d H:i"|default:"Nunca" }}</td>
         <td>
           {% if u != request.user %}
           <form method="post" action="{% url 'monitoring:user-toggle-active' u.pk %}"

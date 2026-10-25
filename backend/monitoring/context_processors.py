@@ -1,4 +1,4 @@
-from .models import SiteBranding
+from .models import Profile, SiteBranding
 from .permissions import get_profile, is_admin_or_global
 
 
@@ -21,6 +21,7 @@ def role_context(request):
         {
             "user_role": profile.role,
             "user_is_admin_or_global": is_admin_or_global(request.user),
+            "user_is_viewer": profile.role == Profile.ROLE_VIEWER,
             "user_profile": profile,
             "effective_logo_url": (profile.logo.url if profile.logo else None) or site_logo_url,
             "effective_background_url": (profile.background_image.url if profile.background_image else None)

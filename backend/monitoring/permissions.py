@@ -26,16 +26,20 @@ def is_admin_or_global(user):
     return get_role(user) in (Profile.ROLE_ADMIN, Profile.ROLE_GLOBAL)
 
 
+def is_viewer(user):
+    return get_role(user) == Profile.ROLE_VIEWER
+
+
 def devices_for(user):
-    """Devices visible to this user: all of them for Global, only owned ones otherwise."""
-    if is_global(user):
+    """Devices visible to this user: all of them for Global/Visualizador, only owned ones otherwise."""
+    if is_global(user) or is_viewer(user):
         return Device.objects.all()
     return Device.objects.filter(owner=user)
 
 
 def products_for(user):
-    """Products visible to this user: all of them for Global, only owned ones otherwise."""
-    if is_global(user):
+    """Products visible to this user: all of them for Global/Visualizador, only owned ones otherwise."""
+    if is_global(user) or is_viewer(user):
         return Product.objects.all()
     return Product.objects.filter(owner=user)
 

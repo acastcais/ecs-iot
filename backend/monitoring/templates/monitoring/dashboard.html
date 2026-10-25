@@ -4,7 +4,9 @@
 {% block content %}
 <div class="page-header">
   <h1>Dashboard</h1>
+  {% if not user_is_viewer %}
   <a class="btn" href="{% url 'monitoring:device-create' %}">+ Agregar dispositivo</a>
+  {% endif %}
 </div>
 
 {{ seed_data|json_script:"seed-data" }}
@@ -26,7 +28,9 @@
           <div class="sensor-card" data-sensor-id="{{ sensor.id }}" data-widget-type="{{ widget.widget_type }}">
             <div class="sensor-card-header">
               <h3>{{ sensor.variable }} <span class="unit">{{ sensor.unit }}</span></h3>
+              {% if not user_is_viewer %}
               <a class="gadget-config-link" href="{% url 'monitoring:sensor-widget-edit' sensor.id %}" title="Configurar gadget">⚙</a>
+              {% endif %}
             </div>
 
             {% localize off %}
