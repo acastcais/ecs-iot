@@ -258,6 +258,14 @@ class Widget(models.Model):
             "(ej. resistencia de puesta a tierra por sobre el máximo permitido según la norma aplicable)."
         ),
     )
+    alert_threshold = models.FloatField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Opcional, para cualquier gadget: si se define, se muestra una luz piloto bajo el sensor "
+            "(verde en rango normal, roja cuando el valor es mayor o igual a este umbral)."
+        ),
+    )
     button_on_value = models.FloatField(default=1, help_text="Usado por Botón: valor que se publica al encender.")
     button_off_value = models.FloatField(default=0, help_text="Usado por Botón: valor que se publica al apagar.")
     slider_step = models.FloatField(default=1, help_text="Usado por Slider.")

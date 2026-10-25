@@ -28,34 +28,67 @@ def parse_device_tokens(raw):
 
 DEVICE_TOKENS = parse_device_tokens(os.environ.get("SIMULATOR_DEVICE_TOKENS", ""))
 
-# variable -> (min, max, starting value, max step per tick)
+# variable -> (min, max, normal value, noise per tick, alert threshold)
+# Los umbrales deben coincidir con el "Umbral de alerta" de cada gadget en el dashboard
+# (y, con hardware real, con los que use Node-RED/PLC).
 VARIABLE_RANGES = {
-    "resistencia_tierra": (0.5, 30.0, 5.0, 0.4),
-    "voltaje": (205.0, 235.0, 220.0, 1.5),
+    "ch4": (0.0, 300.0, 20.0, 8.0, 100.0),       # ppm
+    "co2": (400.0, 3000.0, 700.0, 60.0, 1000.0), # ppm
+    "pm10": (5.0, 250.0, 35.0, 6.0, 50.0),       # µg/m³
 }
 
-# device_slug -> list of variables it reports
-DEVICES = {
-    "subestacion-01": ["resistencia_tierra", "voltaje"],
-    "sala-electrica-02": ["resistencia_tierra"],
-    "torre-transmision-03": ["resistencia_tierra"],
+# device_slug -> variable it reports (un ESP32 por sensor)
+SENSOR_DEVICES = {
+    "esp32-ch4": "ch4",
+    "esp32-co2": "co2",
+    "esp32-pm10": "pm10",
 }
+
+# Variador de frecuencia (VDF) comandado por el PLC, publicado como un dispositivo más.
+PLC_DEVICE = "plc-ventilador"
+# sensores en alerta -> frecuencia objetivo del variador (Hz)
+FREQUENCY_BY_ALERTS = {0: 10.0, 1: 20.0, 2: 30.0, 3: 40.0}
+FREQUENCY_RAMP_HZ_PER_TICK = 2.0  # rampa de aceleración/desaceleración del variador
+
+# Cada sensor alterna entre "episodios" normales y de alerta para poder ver cómo reacciona el sistema.
+ALERT_EPISODE_PROBABILITY = 0.4
+EPISODE_TICKS = (8, 20)
+
+
+def new_episode(variable):
+    low, high, normal, _, threshold = VARIABLE_RANGES[variable]
+    if random.random() < ALERT_EPISODE_PROBABILITY:
+        target = random.uniform(threshold * 1.15, min(high, threshold * 1.8))
+    else:
+        target = normal
+    return target, random.randint(*EPISODE_TICKS)
 
 
 def build_state():
     state = {}
-    for slug, variables in DEVICES.items():
-        state[slug] = {}
-        for variable in variables:
-            _, _, start, _ = VARIABLE_RANGES[variable]
-            state[slug][variable] = start
+    for variable, (_, _, normal, _, _) in VARIABLE_RANGES.items():
+        target, ticks = new_episode(variable)
+        state[variable] = {"value": normal, "target": target, "ticks_left": ticks}
     return state
 
 
-def step_value(variable, current):
-    low, high, _, max_step = VARIABLE_RANGES[variable]
-    candidate = current + random.uniform(-max_step, max_step)
-    return max(low, min(high, candidate))
+def step_value(variable, s):
+    low, high, _, noise, _ = VARIABLE_RANGES[variable]
+    if s["ticks_left"] <= 0:
+        s["target"], s["ticks_left"] = new_episode(variable)
+    s["ticks_left"] -= 1
+    candidate = s["value"] + (s["target"] - s["value"]) * 0.15 + random.uniform(-noise, noise) * 0.5
+    s["value"] = max(low, min(high, candidate))
+    return s["value"]
+
+
+def publish(client, slug, variable, value):
+    payload = {
+        "value": round(value, 2),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "token": DEVICE_TOKENS.get(slug, ""),
+    }
+    client.publish(f"{MQTT_TOPIC_PREFIX}/{slug}/{variable}", json.dumps(payload), qos=1)
 
 
 def main():
@@ -67,24 +100,30 @@ def main():
     client.loop_start()
 
     state = build_state()
+    frequency = FREQUENCY_BY_ALERTS[0]
     print(f"Simulator publishing to {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT} every {PUBLISH_INTERVAL_SECONDS}s")
-    for slug in DEVICES:
+    for slug in [*SENSOR_DEVICES, PLC_DEVICE]:
         if slug not in DEVICE_TOKENS:
             print(f"WARNING: no token configured for '{slug}' in SIMULATOR_DEVICE_TOKENS; "
                   f"its readings will be rejected by the listener until you add one.")
 
     try:
         while True:
-            for slug, variables in DEVICES.items():
-                for variable in variables:
-                    state[slug][variable] = step_value(variable, state[slug][variable])
-                    payload = {
-                        "value": round(state[slug][variable], 2),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "token": DEVICE_TOKENS.get(slug, ""),
-                    }
-                    topic = f"{MQTT_TOPIC_PREFIX}/{slug}/{variable}"
-                    client.publish(topic, json.dumps(payload), qos=1)
+            alerts = 0
+            for slug, variable in SENSOR_DEVICES.items():
+                value = step_value(variable, state[variable])
+                publish(client, slug, variable, value)
+                if value >= VARIABLE_RANGES[variable][4]:
+                    alerts += 1
+
+            target_hz = FREQUENCY_BY_ALERTS[alerts]
+            if frequency < target_hz:
+                frequency = min(target_hz, frequency + FREQUENCY_RAMP_HZ_PER_TICK)
+            else:
+                frequency = max(target_hz, frequency - FREQUENCY_RAMP_HZ_PER_TICK)
+
+            publish(client, PLC_DEVICE, "sensores_en_alerta", alerts)
+            publish(client, PLC_DEVICE, "frecuencia_hz", frequency)
             time.sleep(PUBLISH_INTERVAL_SECONDS)
     except KeyboardInterrupt:
         pass

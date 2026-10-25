@@ -164,6 +164,14 @@
         const valueEl = card.querySelector('[data-role="latest-value"]');
         if (valueEl) valueEl.textContent = `${s.value} ${s.unit || ""}`.trim();
 
+        const pilot = card.querySelector('[data-role="pilot"]');
+        if (pilot) {
+          const inAlert = s.value >= parseFloat(pilot.dataset.threshold);
+          pilot.classList.toggle("alert", inAlert);
+          pilot.classList.toggle("ok", !inAlert);
+          pilot.querySelector(".pilot-label").textContent = inAlert ? "ALERTA" : "Normal";
+        }
+
         if (widgetType === "line_chart") {
           const chart = charts[s.id];
           if (!chart || lastTimestamps[s.id] === s.timestamp) return;

@@ -60,6 +60,13 @@
               <input type="range" class="gadget-slider" data-role="gadget-slider"
                      min="{{ widget.min_value }}" max="{{ widget.max_value }}" step="{{ widget.slider_step }}">
             {% endif %}
+
+            {% if widget.alert_threshold is not None %}
+              <div class="pilot-row" data-role="pilot" data-threshold="{{ widget.alert_threshold }}">
+                <span class="pilot-dot"></span>
+                <span class="pilot-label">Sin datos</span>
+              </div>
+            {% endif %}
             {% endlocalize %}
           </div>
           {% endwith %}
