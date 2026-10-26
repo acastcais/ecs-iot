@@ -257,6 +257,25 @@ defecto; se pueden reemplazar las veces que quieras, y el rol Global puede
 crear **tipos nuevos** en cualquier momento (ej. uno específico que pida un
 cliente) sin tocar código.
 
+## Demo de calidad de aire (dispositivos y usuarios de ejemplo)
+
+Los dispositivos, sensores, gadgets y usuarios viven en la base de datos, no en
+git: tras clonar el repo en otro equipo el dashboard arranca vacío. Para dejar
+el demo de calidad de aire (3 ESP32 de CH4/CO2/PM10 + VDF del PLC) listo:
+
+```
+copy .env.example .env
+docker compose up --build -d
+docker compose exec web python manage.py seed_calidad_aire
+```
+
+El comando crea los 4 dispositivos con sus gadgets y umbrales de alerta (luces
+piloto), y tres usuarios de ejemplo — `usuario1` (Operador), `usuario2`
+(Visualizador, solo lectura) y `usuario3` (desactivado, sin acceso) — e imprime
+sus contraseñas (`--password` fija una común). Es idempotente. Los tokens salen
+de `SIMULATOR_DEVICE_TOKENS` en `.env`, así el simulador publica de inmediato;
+si cambiaste algún token, el comando imprime la línea a pegar en `.env`.
+
 ## Carga masiva de datos de demostración
 
 El mecanismo para poblar el sistema con operadores, productos, dispositivos y
